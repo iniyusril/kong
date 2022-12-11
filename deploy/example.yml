@@ -1,0 +1,26 @@
+version: "3.6"
+
+services:
+  transaction:
+    image: ${IMAGE_VERSION}
+    networks:
+      - code-overlay
+    ports:
+      - "32200:3000"
+    env_file:
+      - ./sandbox.env
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 256m
+        reservations:
+          cpus: "0.2"
+          memory: 128m
+      restart_policy:
+        condition: on-failure
+
+networks:
+  code-overlay:
+    external: true

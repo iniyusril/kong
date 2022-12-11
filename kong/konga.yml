@@ -1,0 +1,48 @@
+version: "3.7"
+
+networks:
+  cloudboz:
+    external: true
+
+services:
+  konga-prepare:
+    image: pantsel/konga:0.14.9
+    command: "-c prepare -a postgres -u postgresql://${KONGA_DB_USERNAME:-kong}:${KONGA_DB_PASSWORD:-kong}@${KONGA_DB_HOST:-kong_kongdb}:${KONGA_DB_PORT:-5432}/${KONGA_DB_NAME:-kong}"
+    networks:
+      - cloudboz
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  konga:
+    image: pantsel/konga:0.14.9
+    environment:
+      TOKEN_SECRET: ${KONGA_TOKEN_SECRET:-iu7YDcPLiZkozQxXzZ9kka3Ee1Vid5ZgQI2}
+      DB_ADAPTER: postgres
+      DB_HOST: ${KONGA_DB_HOST:-kong_kongdb}
+      DB_PORT: ${KONGA_DB_PORT:-5432}
+      DB_DATABASE: ${KONGA_DB_NAME:-kong}
+      DB_USER: ${KONGA_DB_USERNAME:-kong}
+      DB_PASSWORD: ${KONGA_DB_PASSWORD:-kong}
+      NODE_ENV: ${KONGA_ENV:-production}
+      KONGA_HOOK_TIMEOUT: 120000
+    depends_on:
+      - konga-prepare
+    ports:
+      - ${KONGA_PORT:-1337}:1337
+    networks:
+      - cloudboz
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.8"
+          memory: 512m
+        reservations:
+          cpus: "0.25"
+          memory: 128m
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
