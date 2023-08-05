@@ -95,7 +95,7 @@ services:
           - node.role == manager
 networks:
   cloudboz:
-    external: true
+    external: false
 
 volumes:
   db:
