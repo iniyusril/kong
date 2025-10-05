@@ -1,0 +1,86 @@
+version: "3.8"
+
+networks:
+  cloudboz:
+    external: true
+
+volumes:
+  kong_data:
+  kong_db_data:
+
+services:
+  kong-db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong_password_here
+      POSTGRES_DB: kong
+    volumes:
+      - kong_db_data:/var/lib/postgresql/data
+    networks:
+      - cloudboz
+    deploy:
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kong-migrations:
+    image: kong:3
+    command: kong migrations bootstrap
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong_password_here
+      KONG_PG_DATABASE: kong
+    networks:
+      - cloudboz
+    deploy:
+      restart_policy:
+        condition: none
+    depends_on:
+      - kong-db
+
+  kong:
+    image: kong:3
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kong_password_here
+      KONG_PG_DATABASE: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+      KONG_ADMIN_GUI_URL: http://157.10.252.45:8002
+      KONG_ADMIN_API_URI: http://157.10.252.45:8001
+      KONG_ADMIN_GUI_PATH: /
+      KONG_ADMIN_GUI_LISTEN: 0.0.0.0:8002
+    depends_on:
+      - kong-db
+    ports:
+      - "80:8000"   # Public API gateway
+      - "443:8443"   # HTTPS API gateway
+      - "8001:8001"   # Admin API
+      - "8444:8444"   # Admin API HTTPS
+      - "8002:8002"   # Kong Manager (GUI)
+    networks:
+      - cloudboz
+    volumes:
+      - kong_data:/usr/local/kong
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
